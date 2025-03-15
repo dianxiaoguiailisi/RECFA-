@@ -1,104 +1,106 @@
-# ReCFA
-Resillent Control-Flow Attestation
+# ReCFA  
+Resilient Control-Flow Attestation（弹性控制流认证）
 
-## Requirement
+## 需求
 
-- ReCFA has been tested on Ubuntu-18.04.5 LTS 64-bit
-- Tool dependency (**Please deploy the tools on the host Ubuntu 18.04 running ReCFA, except typearmor.**)
-  - gcc 7.5.0
-  - llvm 10.0.0
-  - Dyninst 10.1.0
-  - zstandard 1.5.0
-  - typearmor (latest) with Dyninst 9.3.1. (**Please follow the instructions of the repository `ReCFA-dev` to deploy typearmor in a virtualbox guest Ubuntu 16.04 64bit.**)
+- ReCFA 已在 **Ubuntu-18.04.5 LTS 64-bit** 上进行测试  
+- 依赖工具 (**请在运行 ReCFA 的 Ubuntu 18.04 主机上部署这些工具，typearmor 除外**)  
+  - gcc 7.5.0  
+  - llvm 10.0.0  
+  - Dyninst 10.1.0  
+  - zstandard 1.5.0  
+  - typearmor（最新版本）搭配 Dyninst 9.3.1 (**请根据 `ReCFA-dev` 仓库的指南，在 **VirtualBox** 的 Ubuntu 16.04 64-bit 客户端中部署 typearmor**)  
 
-## Deployment
+## 部署
 
-- Install Dyninst 10.1.0 and configure the PATH environment. (**Please follow the instructions of the repository `ReCFA-dev`.**)
-- Install zstandard.
-- (Optional) Build the preCFG used by the call-site filtering:
-  ```
+- 安装 Dyninst 10.1.0 并配置 PATH 环境变量 (**请参考 `ReCFA-dev` 仓库的指南**)  
+- 安装 zstandard  
+- （可选）编译用于调用点过滤（call-site filtering）的 preCFG：  
+  ```bash
   cd src/preCFG
   make
   make install
   ```
-- (Optional) Build the call-site filter:
-  ```
+- （可选）编译调用点过滤器：  
+  ```bash
   cd src/csfilter
   make
   make install
   ```
-- Generate the .dot and .asm files used by the call-site filtering of ReCFA, then perform the call-site filtering:
-  ```
+- 生成用于调用点过滤的 `.dot` 和 `.asm` 文件，然后执行过滤操作：  
+  ```bash
   ./prepare_csfiltering.sh gcc
   ./prepare_csfiltering.sh llvm
   ```
-  (**The outputs of this step will be found in `spec_gcc/O0` and `spec_llvm/O0`. For each binary, e.g. `bzip2_base.gcc_O0`, this step will generate an `.dot` file, a `.filtered` file, and a `.filtered.map` file**)
+  **（此步骤的输出文件位于 `spec_gcc/O0` 和 `spec_llvm/O0`，对于每个二进制文件，例如 `bzip2_base.gcc_O0`，该步骤会生成 `.dot`、`.filtered` 和 `.filtered.map` 文件）**  
 
-- (Optional) Build the mutator of binary for the static instrumentation with Dyninst.
-  ```
+- （可选）编译二进制变异器（mutator），用于通过 Dyninst 进行静态插桩：  
+  ```bash
   cd src/mutator
   make
   make install
   ```
-- Use the mutator to instrument binaries.
-  ```
+- 使用变异器对二进制文件进行插桩：  
+  ```bash
   ./instrument.sh gcc
   ./instrument.sh llvm
   ```
-  (**The outputs of this step will be found in `spec_gcc/O0` and `spec_llvm/O0`. For each binary, e.g. `bzip2_base.gcc_O0`, this step will generate a new instrumented binary `bzip2_base.gcc_O0_instru`**)
+  **（此步骤的输出文件位于 `spec_gcc/O0` 和 `spec_llvm/O0`，例如 `bzip2_base.gcc_O0`，会生成插桩后的二进制文件 `bzip2_base.gcc_O0_instru`）**  
 
-- **The next step should be running the instrumented binary with the standard workload of SPEC CPU 2k6 benchmark to generate the control-flow events. Because we cannot release SPEC CPU 2k6, we assume this step is done for the artifact evaluation. Please download the following zip files for the control-flow events.**
+- **下一步需运行插桩后的二进制文件，并使用 SPEC CPU 2k6 基准测试的标准负载生成控制流事件。由于 SPEC CPU 2k6 无法公开发布，我们假设该步骤已完成。请下载以下 ZIP 文件以获取控制流事件数据：**  
+  - [re-gcc.zip](https://drive.google.com/file/d/10WiR7L3w_sRVK1JG6Tu8OKVNexhmwhB6/view?usp=sharing)  
+  - [re-llvm.zip](https://drive.google.com/file/d/1aoc1BppBAKIRDSAT0wsxq9WbkZ_rz_jS/view?usp=sharing)  
 
-  - https://drive.google.com/file/d/10WiR7L3w_sRVK1JG6Tu8OKVNexhmwhB6/view?usp=sharing
-  - https://drive.google.com/file/d/1aoc1BppBAKIRDSAT0wsxq9WbkZ_rz_jS/view?usp=sharing
+  请将 `re-gcc.zip` 放入 `spec_gcc/O0` 目录并解压缩，即可获得控制流事件文件。例如，`spec_gcc/O0/bzip2_base.gcc_O0_instru` 的运行时事件存储在 `spec_gcc/O0/bzip2_base.gcc_O0_instru-re`。  
 
-  Put `re-gcc.zip` into directory `spec_gcc/O0` and unzip it. We got the control-flow events files. For example, for the instrumented binary `spec_gcc/O0/bzip2_base.gcc_O0_instru`, the corresponding runtime events extracted from `re-gcc.zip` is the file `spec_gcc/O0/bzip2_base.gcc_O0_instru-re`.
-
-- (Optional) Build the folding and greedy-compression program.
-  ```
+- （可选）编译事件折叠（folding）和贪心压缩（greedy compression）程序：  
+  ```bash
   cd src/folding
   ./build.sh
   ```
-- Prover-side control-flow event folding and greedy compression.
-  ```
+- 执行 prover 端控制流事件的折叠和贪心压缩：  
+  ```bash
   ./compress.sh gcc
   ./compress.sh llvm
   ```
-  The procedure will output the folded runtime control-flow events (e.g. in `bzip2_base.gcc_O0_instru-re_folded`), the greedy compression result (e.g. in `bzip2_base.gcc_O0_instru-re_folded_gr`), and the zstandard compression result (e.g. in `bzip2_base.gcc_O0_instru-re_folded_gr.zst`).
+  该过程将生成：
+  - **折叠后的运行时控制流事件**（例如 `bzip2_base.gcc_O0_instru-re_folded`）  
+  - **贪心压缩结果**（例如 `bzip2_base.gcc_O0_instru-re_folded_gr`）  
+  - **zstandard 压缩结果**（例如 `bzip2_base.gcc_O0_instru-re_folded_gr.zst`）  
 
-- Prepare the verifier.
-  - (Optional) Build the verifier program.
-  ```
+- **准备验证器（Verifier）**
+  - （可选）编译验证器：  
+  ```bash
   cd src/verifier
   ./build.sh
   ```
 
-- Generate CFI policy mapping `F` with the patched typearmor. **Please follow the instructions of `ReCFA-dev` to deploy and patch typearmor. (The artifact reviewers can safely skip this step. In the directory `policy/F/` there are the `binfo.*` for the SPEC2k6 binaries evaluated in our paper. The policy files are there.)**
-  - Put the original (un-instrumented) binaries of SPEC2k6 in `typearmor/server-bins`. Then,
-  ```
-  cd typearmor/server-bins
-  ../run-ta-static.sh ./bzip2_base.gcc_O0
-  ```
-  - The policy file will be generated into `typearmor/out/`, e.g. `typearmor/out/binfo.bzip2_base.gcc_O0`.
-  - Move all the policy files into the repository `ReCFA` for use by the verifier.
+- **生成 CFI 策略映射 `F`**（需要打补丁的 typearmor）。  
+  **请按照 `ReCFA-dev` 的指南部署并打补丁 typearmor（评测人员可跳过该步骤，预生成的策略文件位于 `policy/F/`）。**  
+  - 将原始（未插桩）SPEC2k6 二进制文件放入 `typearmor/server-bins` 目录。然后执行：  
+    ```bash
+    cd typearmor/server-bins
+    ../run-ta-static.sh ./bzip2_base.gcc_O0
+    ```
+  - 生成的策略文件存放在 `typearmor/out/` 目录，例如 `typearmor/out/binfo.bzip2_base.gcc_O0`。  
+  - 将所有策略文件移动到 `ReCFA` 仓库的 `policy/` 目录，以供验证器使用。  
 
-- Run the verifier. (Ensure the policy files are well deployed in `policy/`)
-  ```
+- 运行验证器（确保策略文件正确部署在 `policy/` 目录下）：  
+  ```bash
   ./verify.sh gcc
   ./verify.sh llvm
   ```
-  The attestation results are reported by the verifier at the console.
+  验证器会在控制台输出认证结果。  
 
-## Directory structure
+## 目录结构  
 
-- spec_gcc, spec_llvm: the working directories of ReCFA's benchmark evaluations.
-- bin: executables of ReCFA.
-- src: source code of the main modules of ReCFA.
-  - preCFG: using dyninst to generate the `.dot` file (indeed a dcfg + i-jumps) used by the call-site filtering and the verification. 
-  - csfilter: generating the skipped direct call sites.
-  - mutator: the program taking the original binary as input and statically instrumenting the binary into a new binary running as the prover.
-  - folding: the control-flow events condensing programs, including the events folding program and the greedy compression program.
-  - verifier: the verifier program taking the policy and attesting the control-flow integrity of provers.
-- lib: the share object used by the control-flow folding and greedy compression.
-- policy: the CFI policy files.
-
+- `spec_gcc`, `spec_llvm`：ReCFA 基准测试评估的工作目录  
+- `bin`：ReCFA 的可执行文件  
+- `src`：ReCFA 主要模块的源代码  
+  - `preCFG`：使用 Dyninst 生成 `.dot` 文件（用于调用点过滤和验证）  
+  - `csfilter`：生成被跳过的直接调用点  
+  - `mutator`：变异器程序，输入原始二进制文件并插桩为 prover 二进制文件  
+  - `folding`：控制流事件的折叠与贪心压缩  
+  - `verifier`：验证器程序，使用 CFI 策略检查 prover 的控制流完整性  
+- `lib`：控制流折叠和贪心压缩所需的共享库  
+- `policy`：CFI 策略文件  
